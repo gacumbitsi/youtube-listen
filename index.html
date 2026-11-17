@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101116">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="YT Listen">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>YouTube Listen</title>
+  <style>
+    :root{color-scheme:dark;--bg:#101116;--panel:#1b1d25;--muted:#a4a6b2;--red:#ff3344}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:#fff;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    main{max-width:680px;margin:auto;padding:calc(22px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))}
+    header{display:flex;align-items:center;gap:13px;margin:8px 0 28px}
+    .logo{width:48px;height:48px;border-radius:15px;background:var(--red);display:grid;place-items:center;font-size:24px}
+    h1{font-size:23px;margin:0} header p,.hint,.sub{color:var(--muted);font-size:13px;margin:4px 0 0}
+    .label{font-size:11px;letter-spacing:1.5px;color:var(--muted);font-weight:800;margin:0 0 12px}
+    .entry{display:flex;align-items:center;background:var(--panel);border:1px solid #30323c;border-radius:14px;padding:0 13px}
+    input{width:100%;padding:16px 8px;background:transparent;border:0;outline:0;color:white;font-size:16px;min-width:0}
+    button{border:0;color:white;cursor:pointer;font-weight:700}
+    .load{width:100%;padding:16px;margin-top:11px;background:var(--red);border-radius:14px;font-size:16px}
+    .error{color:#ffb36a;font-size:13px;min-height:18px}
+    .player-wrap{margin-top:25px}
+    .player{aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden}
+    iframe{width:100%;height:100%;border:0}
+    .nowrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .heart{background:transparent;font-size:24px;color:#fff;padding:3px}.heart.saved{color:var(--red)}
+    .note{font-size:12px;line-height:1.5;color:var(--muted);margin-top:10px}
+    .favorites{margin-top:30px}
+    .fav{display:flex;align-items:center;gap:12px;background:var(--panel);padding:13px;border-radius:13px;margin:9px 0}
+    .fav .meta{min-width:0;flex:1}.fav strong{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .fav small{color:var(--muted)}.fav button{background:transparent;font-size:20px;padding:5px}
+    .empty{padding:28px 15px;text-align:center;background:#191b22;border-radius:16px;color:var(--muted);line-height:1.5}
+    .empty b{display:block;color:white;margin-bottom:5px}
+    .install{margin-top:22px;padding:14px;border:1px solid #343640;border-radius:14px;font-size:13px;line-height:1.5;color:var(--muted)}
+  </style>
+</head>
+<body>
+<main>
+  <header><div class="logo">▶</div><div><h1>YouTube Listen</h1><p>Your personal listening space</p></div></header>
+  <section>
+    <p class="label">PLAY A VIDEO</p>
+    <div class="entry"><span>🔗</span><input id="url" type="url" placeholder="Paste a YouTube link" autocomplete="off"></div>
+    <button class="load" id="load">▶ &nbsp; Load video</button>
+    <div class="error" id="error" role="status"></div>
+  </section>
+  <section class="player-wrap" id="playerSection" hidden>
+    <div class="nowrow"><p class="label" style="margin:0">NOW PLAYING</p><button class="heart" id="save" aria-label="Save favorite">♡</button></div>
+    <div class="player"><iframe id="frame" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+    <p class="note">Playback is provided by YouTube. The official player and controls remain visible. Background or screen-off playback is not provided by this app.</p>
+  </section>
+  <section class="favorites">
+    <div class="nowrow"><p class="label" style="margin:0">FAVORITES</p><span class="sub" id="count">0</span></div>
+    <div id="list"><div class="empty"><b>Your player is ready</b>Paste a YouTube video link above to start. Saved videos will appear here.</div></div>
+  </section>
+  <div class="install"><b style="color:white">Install on iPhone</b><br>After this app is hosted on a secure website, open it in Safari, tap Share, then choose <b style="color:white">Add to Home Screen</b>.</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let current=null, favorites=JSON.parse(localStorage.getItem('ytlisten-favs')||'[]');
+function parseYouTube(raw){
+  try{
+    const u=new URL(raw.trim());let id='';
+    if(['youtu.be','www.youtu.be'].includes(u.hostname)) id=u.pathname.split('/').filter(Boolean)[0]||'';
+    else if(['youtube.com','www.youtube.com','m.youtube.com'].includes(u.hostname)){
+      if(u.pathname==='/watch') id=u.searchParams.get('v')||'';
+      else if(/^\\/(shorts|embed)\\//.test(u.pathname)) id=u.pathname.split('/').filter(Boolean).pop()||'';
+    }
+    return /^[A-Za-z0-9_-]{11}$/.test(id)?{id,url:raw.trim()}:null;
+  }catch{return null}
+}
+function play(item){
+  current=item;$('url').value=item.url;$('playerSection').hidden=false;
+  $('frame').src='https://www.youtube.com/embed/'+item.id+'?playsinline=1&controls=1&rel=0';
+  updateSave();window.scrollTo({top:$('playerSection').offsetTop-10,behavior:'smooth'});
+}
+function updateSave(){
+  const saved=favorites.some(x=>x.id===current?.id);
+  $('save').textContent=saved?'♥':'♡';$('save').classList.toggle('saved',saved);
+  $('save').setAttribute('aria-label',saved?'Remove favorite':'Save favorite');
+}
+function render(){
+  $('count').textContent=favorites.length;
+  $('list').innerHTML='';
+  if(!favorites.length){$('list').innerHTML='<div class="empty"><b>No favorites yet</b>Save a video using the heart button.</div>';return}
+  favorites.forEach(item=>{
+    const row=document.createElement('div');row.className='fav';
+    const icon=document.createElement('span');icon.textContent='▶';icon.style.color='#ff3344';
+    const meta=document.createElement('div');meta.className='meta';
+    const title=document.createElement('strong');title.textContent='YouTube video';
+    const small=document.createElement('small');small.textContent=item.id;meta.append(title,small);
+    const playBtn=document.createElement('button');playBtn.textContent='▶';playBtn.setAttribute('aria-label','Play favorite');playBtn.onclick=()=>play(item);
+    const del=document.createElement('button');del.textContent='×';del.setAttribute('aria-label','Remove favorite');del.onclick=()=>{favorites=favorites.filter(x=>x.id!==item.id);persist()};
+    row.append(icon,meta,playBtn,del);$('list').append(row);
+  });
+}
+function persist(){localStorage.setItem('ytlisten-favs',JSON.stringify(favorites));render();if(current)updateSave()}
+$('load').onclick=()=>{const item=parseYouTube($('url').value);if(!item){$('error').textContent='Enter a valid YouTube video link (youtube.com or youtu.be).';return}$('error').textContent='';play(item)};
+$('url').addEventListener('keydown',e=>{if(e.key==='Enter')$('load').click()});
+$('save').onclick=()=>{if(!current)return;if(favorites.some(x=>x.id===current.id))favorites=favorites.filter(x=>x.id!==current.id);else favorites.unshift(current);persist()};
+render();
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
