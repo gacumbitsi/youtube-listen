@@ -67,7 +67,7 @@ function parseYouTube(raw){
     if(['youtu.be','www.youtu.be'].includes(u.hostname)) id=u.pathname.split('/').filter(Boolean)[0]||'';
     else if(['youtube.com','www.youtube.com','m.youtube.com'].includes(u.hostname)){
       if(u.pathname==='/watch') id=u.searchParams.get('v')||'';
-      else if(/^\\/(shorts|embed)\\//.test(u.pathname)) id=u.pathname.split('/').filter(Boolean).pop()||'';
+      else if(/^\/(shorts|embed)\//.test(u.pathname)) id=u.pathname.split('/').filter(Boolean).pop()||'';
     }
     return /^[A-Za-z0-9_-]{11}$/.test(id)?{id,url:raw.trim()}:null;
   }catch{return null}
